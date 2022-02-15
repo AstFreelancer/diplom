@@ -1,0 +1,14 @@
+        string GetTxtFromDoc(string docname)
+        {
+            //LOCAL loWord as Word.Application, loDoc as Word.Document 
+            //LOCAL lcText 
+
+            //CLEAR 
+            //loWord = CREATEOBJECT("Word.Application") 
+            //loWord.Visible= .F. 
+            //loDoc = loWord.Documents.Open("C:\Tmp\_uved_spetc.doc") 
+            //   loDoc = loWord.Documents.Open(docname) 
+            // loDoc.SaveAs("temp.txt", wdFormatText) 
+            return "";
+        }
+

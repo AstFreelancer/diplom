@@ -1,0 +1,407 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Data.SqlClient;
+using System.Drawing;
+using System.Text;
+using System.Windows.Forms;
+using System.Collections;
+using System.IO;
+using System.Text.RegularExpressions;
+
+namespace Athelas
+{
+    public partial class IndexerForm : Form
+    {
+        public IndexerForm(SqlConnection sc1)
+        {
+            InitializeComponent();
+            sc = sc1;
+            myCommand = new SqlCommand();
+            myCommand.Connection = sc;
+
+            myCommand.CommandText = "select max(step) from docs";
+            string s = myCommand.ExecuteScalar().ToString();
+            if (s == "NULL" || s == "")
+                STEP = -1;
+            else
+                STEP = int.Parse(s);
+
+            myCollection = new Collection();
+            lstAddress.Items.Clear();
+            foreach (string url in myCollection.urls)
+                lstAddress.Items.Add(url);
+            btStop.Enabled = false;
+            lbProcessed.Value = 0;
+            lbTrafic.Value = 0;
+            lbAddrr.Value = lstAddress.Items.Count;
+            lbReport.Items.Clear();
+            AppSettings = new Settings();
+            StemIndexer = new Indexer("stop_ru.dat", "stop_ru_stem.dat", "stop_en.dat");
+        }
+
+        private void btToStart_Sp_Click(object sender, EventArgs e)
+        {
+            DoStep();
+            if (MessageBox.Show("Индексировать сейчас?", "Диплом", MessageBoxButtons.YesNo, MessageBoxIcon.Question)
+                == DialogResult.Yes)
+                DoIndex();
+        }
+        private void DoIndex()
+        {
+            lbReport.Items.Add(System.DateTime.Now.ToString() + " Индексация коллекции...");
+            lbReport.Update();
+            ArrayList idtextslist = myCollection.GetIdTextsList(sc);
+            SetProgressBar(idtextslist.Count, 1);
+            numProcessed.Value = 0;
+            numTime.Text = "00:00:00";
+
+            System.DateTime begintime = System.DateTime.Now;
+            System.TimeSpan delta = new TimeSpan();
+            System.DateTime now = new DateTime();
+
+            int i = 0;
+            foreach (int id in idtextslist)
+            {
+                lstAddress.SelectedIndex = -1;
+                lstAddress.SelectedIndex = i;
+                i++;
+                IncProgressBar();
+                myCommand.CommandText = "select * from texts where id=" + id.ToString() +
+                    " and termsnumber<=0";
+                SqlDataReader reader = myCommand.ExecuteReader();
+                if (!reader.HasRows)
+                {
+                    reader.Close();
+                    continue;
+                }
+                reader.Close();
+                StemIndexer.CreateIndex(id, sc);
+                numProcessed.Value++;
+                numProcessed.Update();
+
+                now = System.DateTime.Now;
+                delta = now - begintime;
+                numTime.Text = delta.ToString().Substring(0, 8);
+                numTime.Update();
+            }
+
+            myCommand.CommandText = "UPDATE Terms SET Terms.TextsNumber=" +
+                "(SELECT Count(TermEntries.Id) FROM TermEntries" +
+                " WHERE TermEntries.Id_Term=Terms.Id)";
+            myCommand.ExecuteNonQuery();
+            tfidf.DoTF(sc);
+            tfidf.DoIDF(sc);
+            lbReport.Items.Add(System.DateTime.Now.ToString() + " Коллекция проиндексирована");
+            now = System.DateTime.Now;
+            delta = now - begintime;
+            numTime.Text = delta.ToString().Substring(0, 8);
+            numTime.Update();
+        }
+        String GetTextOf(string docname)
+        {
+            docname = docname.Replace('*','\'');
+
+            string filetext = "";
+
+            string name = "";
+            long docsize = 0;
+            string ext = "";
+
+            if (isFileName(docname))
+            {
+                //this is a file
+                if (!(File.Exists(docname)))
+                {
+                    lbReport.Items.Add(docname + ": файл не существует");
+                    return "";
+                }
+                System.IO.FileInfo file = new System.IO.FileInfo(docname);
+                if (file.Length > AppSettings.maxDocSize * 1000)
+                {
+                    lbReport.Items.Add(docname + ": слишком большой файл");
+                    return "";
+                }
+
+                name = Path.GetFileNameWithoutExtension(docname).Replace("'", " ");
+                docsize = file.Length;
+                ext = Path.GetExtension(docname).Replace("'", " ");
+
+                if (file.Extension == ".doc" || file.Extension == ".ppt" || file.Extension == ".xls")
+                    filetext = OfficeFileReader.GetText(docname);
+                else
+                {
+                    StreamReader r = new StreamReader(docname, System.Text.Encoding.Default);
+                    filetext = r.ReadToEnd();
+                }
+            }
+            else
+            {
+                //this is URL
+                try
+                {
+                    System.Net.WebRequest req = System.Net.WebRequest.Create(docname);
+                    System.Net.WebResponse resp = req.GetResponse();
+
+                    if (resp.ContentLength > AppSettings.maxDocSize * 1000)
+                    {
+                        lbReport.Items.Add(docname + ": слишком большой файл");
+                        return "";
+                    }
+
+
+                    System.IO.Stream stream = resp.GetResponseStream();
+                    System.IO.StreamReader sr = new System.IO.StreamReader(stream, System.Text.Encoding.GetEncoding(1251));
+                    filetext = sr.ReadToEnd();
+                    String TitlePattern = "<title>(.*?)</title>";
+                    Regex title = new Regex(TitlePattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                    MatchCollection mc = title.Matches(filetext);
+                    if (mc.Count != 0)
+                        name = mc[0].Groups[1].ToString().Replace("'", " ");
+                    docsize = filetext.Length;
+                    ext = docname.Substring(docname.IndexOf("/")).Replace("'", " ");
+                    int ind = ext.IndexOf(".");
+                    if (ind != -1)
+                        ext = ext.Substring(ind);
+                    else
+                        ext = "";
+                    ext = ext.Replace("'", " ");
+                    ext = ext.Substring(0, 5);
+                }
+
+                catch (System.ArgumentNullException e)
+                {
+                    lbReport.Items.Add(docname + ": " + e.Message);
+                    return "";
+                }
+                catch (System.Security.SecurityException e)
+                {
+                    lbReport.Items.Add(docname + ": " + e.Message);
+                    return "";
+                }
+                catch (System.NotImplementedException e)
+                {
+                    lbReport.Items.Add(docname + ": " + e.Message);
+                    return "";
+                }
+
+                catch (System.NotSupportedException e)
+                {
+                    lbReport.Items.Add(docname + ": " + e.Message);
+                    return "";
+                }
+                catch (System.UriFormatException e)
+                {
+                    lbReport.Items.Add(docname + ": " + e.Message);
+                    return "";
+                }
+                catch (System.Net.WebException e)
+                {
+                    lbReport.Items.Add(docname + ": " + e.Message);
+                    return "";
+                }
+            }
+            System.DateTime dt = System.DateTime.Now;
+            dt.ToString("mm.dd.yyyy hh:mm:ss");
+            //здесь часы вставляются от 0 до 12 p/a m
+
+            if (name.Length > 255)
+                name = name.Substring(0, 255);
+            if (ext.Length > 255)
+                ext = ext.Substring(0, 255);
+
+            int tcy = PageRank.GetYandexTCY(docname);
+
+            int gpr = 0;
+            if (docname.StartsWith("http://"))
+                gpr = PageRank.GetGooglePageRank(docname);
+            SetAndExecuteQuery("UPDATE docs SET name='" + name + "',docdate='" + dt.ToString("MM.dd.yyyy hh:mm:ss") +
+                "',docsize='" + docsize + "',ext='" + ext + "',tcy=" + tcy.ToString() + ",gpr=" + gpr.ToString()+ " where id=" + id_doc + ";");
+
+            if (docname.StartsWith("http://"))
+            {
+                trafic += docsize;
+                numTrafic.Value = trafic;
+                numTrafic.Update();
+            }
+            return filetext.Replace("'", " ");
+
+        }
+        private bool isFileName(string s)
+        {
+            if (s.StartsWith("http://", true, null))
+                return false;
+            return true;
+        }
+        private void DoStep()
+        {
+            // AppSettings.Read();
+
+            btStop.Enabled = true;
+            isStop = false;
+            if (lstAddress.Items.Count == 0)
+            {
+                MessageBox.Show("Сначала заполните коллекцию");
+                return;
+            }
+
+            STEP++;
+            lbReport.Items.Add(System.DateTime.Now.ToString() + " Обход коллекции...");
+
+            System.DateTime begintime = System.DateTime.Now;
+            System.TimeSpan delta = new TimeSpan();
+
+            progressBar1.Maximum = lstAddress.Items.Count;
+            progressBar1.Value = 0;
+            int i = 0;
+            for (i = 0; i < lstAddress.Items.Count; i++)
+            {
+                lstAddress.SelectedIndex = -1;
+                lstAddress.SelectedIndex = i;
+                String url = lstAddress.Items[i].ToString();
+
+                myCommand.CommandText = "SELECT id FROM docs WHERE url='" + @url + "' and indexed=0";
+                SqlDataReader reader1 = myCommand.ExecuteReader();
+                if (!reader1.Read())
+                {
+                    reader1.Close();
+                    continue;
+                }
+                id_doc = reader1.GetInt32(0);
+                reader1.Close();
+
+                String text = GetTextOf(url);
+                text = Tags.DeleteAll(text);
+
+                if (text != "")
+                {
+                    SetAndExecuteQuery("INSERT INTO texts(id_doc,doctext) values(" + id_doc.ToString() + ",'" + text + "')");
+                    SetAndExecuteQuery("UPDATE docs SET indexed=1,step=" + STEP.ToString() + " WHERE id=" + id_doc.ToString() + ";");
+                }
+
+                if (trafic > AppSettings.maxTrafic * 1000)
+                    isStop = true;
+
+                System.DateTime nowtime = System.DateTime.Now;
+                delta = nowtime - begintime;
+                int diff = (int)delta.TotalMinutes;
+                if (diff > AppSettings.maxTime)
+                    isStop = true;
+                numTime.Text = delta.ToString().Substring(0, 8);
+                numTime.Update();
+                progressBar1.Value++;
+                numProcessed.Value++;
+                numProcessed.Update();
+                if (isStop)
+                {
+                    MessageBox.Show("Процесс остановлен", "Диплом");
+                    //found = lstHyperlinks.Items.Count;
+                    break;
+                }
+            }
+
+            if (isStop)
+            {
+                lbReport.Items.Add(System.DateTime.Now.ToString() + " Обход коллекции остановлен");
+            }
+            else
+                lbReport.Items.Add(System.DateTime.Now.ToString() + " Обход коллекции выполнен");
+        }
+
+        private void btStop_Click(object sender, EventArgs e)
+        {
+            isStop = true;
+        }
+
+        private void btIndex_Click(object sender, EventArgs e)
+        {
+            DoIndex();
+        }
+        public void SetProgressBar(int count, int step)
+        {
+            progressBar1.Value = 0;
+            progressBar1.Maximum = count;
+            progressBar1.Step = step;
+        }
+        public void IncProgressBar()
+        {
+            progressBar1.Value += progressBar1.Step;
+
+        }
+ 
+        void SetAndExecuteQuery(string q)
+        {
+            myCommand.CommandText = q;
+            myCommand.ExecuteNonQuery();
+        }
+
+        private void btCloseIndexForm_Click(object sender, EventArgs e)
+        {
+            Close();
+        }
+
+        private void IndexerForm_Activated(object sender, EventArgs e)
+        {
+            AppSettings.Read();
+        }
+
+        void SetQuery(string q)
+        {
+            myCommand.CommandText = q;
+        }
+
+        private void DelNotUnique()
+        {
+            SetQuery("select url,id from docs");
+            SqlDataReader r = myCommand.ExecuteReader();
+            Hashtable docs = new Hashtable();
+            ArrayList toDelete = new ArrayList();
+            while (r.Read())
+            {
+                string url = r.GetValue(0).ToString();//url
+                int id = int.Parse(r.GetValue(1).ToString());
+                if (!docs.ContainsKey(url))
+                {
+                    docs.Add(url, id);
+                }
+                else
+                    toDelete.Add(id);
+
+            }
+            r.Close();
+
+            foreach (int i in toDelete)
+                SetAndExecuteQuery("delete from docs where id=" + i.ToString() + ";");
+
+            MessageBox.Show(toDelete.Count.ToString());
+        }
+        private void DownloadFromDBUnindexed()
+        {
+            //загрузить из БД неиндексированное
+            SetQuery("SELECT url FROM docs WHERE indexed=0;");
+            SqlDataReader r = myCommand.ExecuteReader();
+            lstAddress.Items.Clear();
+            while (r.Read())
+                lstAddress.Items.Add(r.GetValue(0).ToString());
+            lstAddress.Update();
+            //doListCount();
+            r.Close();
+        }
+
+        private void ListToDB()
+        {
+            foreach (String s in lstAddress.Items)
+                AddToDB(s, -1);
+            lstAddress.Items.Clear();
+        }
+        private void AddToDB(String url, int id_parent)
+        {
+            if (url.Length > 255)
+                url = url.Substring(0, 255);
+            SetAndExecuteQuery("INSERT INTO docs(url,id_parent,step) " +
+                        "values('" + url + "'," + id_parent + ",-1);");
+        }
+
+    }
+}

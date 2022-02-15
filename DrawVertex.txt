@@ -1,0 +1,150 @@
+//        private string getShort(string s)
+//        {
+//            string result = "";
+//            int nwords = 3;
+//            char[] Delimeters = new char[] { '.', ',', ';', '!', ' ', '\n', '\r', '-', '=', '\\', '/' };
+//            string[] words = s.Split(Delimeters);
+//            if (words.Length < nwords)
+//                return s;
+//            for (int i = 0; i < nwords; i++)
+//                result += words[i] + " ";
+//            return result.Substring(0,result.Length-1)+"...";
+           
+//        }
+        
+//        private double degToRad(double deg)
+//        {
+//            return (Math.PI * deg) / 180;
+//        }
+
+//        private void drawVertex(Vertex v, int radius)
+//        {
+//            int fsize = 9;
+//            Brush brtext = new SolidBrush(Color.Blue);
+////            Brush brsite = new SolidBrush(Color.Black);
+//            Brush br = new SolidBrush(Color.LightGray);
+//            Pen p = new Pen(Color.Green);
+//            Font f = new Font("Arial", fsize, FontStyle.Underline|FontStyle.Bold);
+
+////            v.name = v.id.ToString();
+//            if (v.name == "")
+//                v.name = v.url;
+
+//            int nlen = 20;
+//            int ncol = 3;
+//            if (v.name.Length > nlen*ncol)
+//            {
+//                int ind = v.name.IndexOf(' ', nlen);
+//                if (ind != -1)
+//                    v.name = v.name.Substring(0,ind);
+//                else
+//                    v.name = v.name.Substring(0,nlen);
+//            }
+
+//            if (v.isMain())
+//                graph.FillEllipse(br, v.x, v.y,EllWidth+5,EllHeight+5);
+//            else
+//                graph.FillEllipse(br, v.x, v.y,EllWidth,EllHeight);
+
+//            if (v.name.Length > nlen)
+//            {
+//                graph.DrawString(v.name.Substring(0, v.name.Length / 3), f, brtext, v.x, v.y);
+//                graph.DrawString(v.name.Substring(v.name.Length / 3, v.name.Length / 3), f, brtext, v.x, v.y + fsize + 3);
+//                graph.DrawString(v.name.Substring(2*v.name.Length / 3, v.name.Length-2*v.name.Length / 3), f, brtext, v.x, v.y + 2*fsize + 2*3);
+//            }
+//            else
+//                graph.DrawString(v.name, f, brtext, v.x, v.y);
+//        }
+
+//        private void btDoGraph_Click(object sender, EventArgs e)
+//        {
+////            int nvertex = 0;
+
+//            graph = Graphics.FromHwnd(panel1.Handle);
+//            graph.Clear(Color.White);
+
+//            int rd = 30;
+//            int radius = 50;
+//            Pen p = new Pen(Color.Green);
+
+////            int rd = 100;
+
+//            SetQuery("SELECT id,url,name FROM docs WHERE id_parent=-1 and indexed=1;");
+//            SqlDataReader r = myCommand.ExecuteReader();
+//            Random rand = new Random(DateTime.Now.Millisecond);
+//            //Queue Q = new Queue();
+//            Stack Q = new Stack();
+//            ArrayList discovered = new ArrayList();
+//            ArrayList processed = new ArrayList();
+//            Queue first = new Queue();
+//            while (r.Read())
+//            {
+//                first.Enqueue(new Vertex(int.Parse(r.GetValue(0).ToString()), r.GetValue(1).ToString(),
+//                            r.GetValue(2).ToString(),""));
+//            }
+//            r.Close();
+//            while (first.Count != 0)
+//            {
+//                Vertex ed = (Vertex)first.Dequeue();
+//                ed.x = panel1.Width / 3;
+//                ed.y = 3*panel1.Height / 4+3;
+
+//                //ed.x = rand.Next(panel1.Width / 3, 2 * panel1.Width / 3);
+//                //ed.y = rand.Next(panel1.Height / 3, 2 * panel1.Height / 3);
+//                ed.clr = Color.Blue;
+//                Q.Push(ed);
+//                discovered.Add(ed.id);
+//                while (Q.Count != 0)
+//                {
+//                    Vertex v = (Vertex)Q.Pop();
+//                    Color clr = Color.LightBlue;
+//                  //  Color clr = Color.FromArgb(rand.Next(0, 255), rand.Next(0, 255), rand.Next(0, 255));
+//                    if (v.x == 0 && v.y == 0)
+//                    {
+//                        v.x = rand.Next(panel1.Width / 4, 3 * panel1.Width / 4);
+//                        v.y = rand.Next(panel1.Height / 4, 3 * panel1.Height / 4);
+//                        v.clr = clr;
+//                    }
+//                    Brush br = new SolidBrush(v.clr);
+//                    drawVertex(v,radius);
+                    
+//                    p.Color = v.clr;
+//                    processed.Add(v.id);
+//                    SetQuery("SELECT count(*) FROM docs WHERE indexed=1 and id_parent=" + v.id.ToString() + ";");
+//                    int ncnct = int.Parse(myCommand.ExecuteScalar().ToString());
+//                    SetQuery("SELECT id,url,name FROM docs WHERE indexed=1 and id_parent=" + v.id.ToString() + ";");
+//                    r = myCommand.ExecuteReader();
+//                    double alpha = 0;
+//                    if (ncnct == 1)
+//                        alpha = rand.Next(180,270);
+//                    while (r.Read())
+//                    {
+//                        Vertex i = new Vertex(int.Parse(r.GetValue(0).ToString()), r.GetValue(1).ToString(),
+//                            r.GetValue(2).ToString(), "");
+//                        alpha += (double)360 / ncnct;
+
+//                        int oldrd = rd;
+//                        if (i.getSite() != v.getSite())
+//                            rd = (int)(rd * 2.5);
+
+//                        i.x = v.x + rd * (float)System.Math.Cos(degToRad(alpha));
+//                        i.y = v.y + rd * (float)System.Math.Sin(degToRad(alpha));
+//                        rd = oldrd;
+
+//                        i.clr = clr;
+//                        if (!discovered.Contains(i.id))
+//                        {
+//                            Q.Push(i);
+//                            discovered.Add(i.id);
+//                        }
+//                        if (!processed.Contains(i.id))
+//                        {
+//                            graph.DrawLine(new Pen(Color.Black, 2), v.x + EllWidth / 2, v.y + EllHeight / 2, i.x + EllWidth / 2, i.y + EllHeight / 2);
+//                            processed.Add(i.id);
+//                        }
+//                    }
+
+//                    r.Close();
+//                }
+//            }//*/
+//        }

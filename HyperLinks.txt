@@ -1,0 +1,42 @@
+       //private void AddHyperlink(string url)
+        //{
+        //    if (lstHyperlinks.Items.Contains(url))
+        //        return;
+        //    lstHyperlinks.Items.Add(url);
+        //}
+        //private String FindHyperlinks(String filetext, int id_doc)
+        //{
+        //    if (filetext == "")
+        //        return "";
+
+        //    //пример из какого-то учебника
+        //    //неплохо бы потестировать
+        //    //Regex regex = new Regex(@"(\b\w+:\/\/\w+((\.\w)*\w+)*\.\w{2,3}(\/\w*|\.\w*|\?\w*\=\w*)*)"); 
+
+        //    String HttpPattern = "<(a|link).*?href=\"(http:.+?\\.(ru|su|net|org|com).+?)\".*?>";
+        //    //           String HttpPattern = "<(a|link).*?href=\"(http:.+?\\..{2,4}\\.?.*?)\".*?>";
+        //    Regex reHTTP = new Regex(HttpPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        //    MatchCollection mc = reHTTP.Matches(filetext);
+        //    foreach (Match m in mc)
+        //    {
+        //        String newurl = m.Groups[2].ToString();
+        //        if (!lstAddress.Items.Contains(newurl) && !lstHyperlinks.Items.Contains(newurl) &&
+        //            !newurl.Contains("'"))
+        //        {
+        //            String s = newurl.Substring(7);//http://
+        //            int si = s.LastIndexOf("/");
+        //            int di = s.LastIndexOf(".");
+        //            if (di == -1 || di <= si || //вообще нет расширения
+        //                s.EndsWith(".htm") || s.EndsWith(".html"))
+        //            {
+        //                newurl = newurl.Replace("&amp;", "&");
+        //                if (newurl.Contains("\""))
+        //                    newurl = newurl.Substring(0, newurl.IndexOf("\""));
+        //                AddToDB(newurl, id_doc);
+        //                lstHyperlinks.Items.Add(newurl);
+        //                lstHyperlinks.Update();
+        //            }
+        //        }
+        //    }
+        //    return filetext;
+        //}

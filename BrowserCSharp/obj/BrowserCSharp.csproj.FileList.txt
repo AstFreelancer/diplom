@@ -1,0 +1,9 @@
+obj\Debug\ResolveAssemblyReference.cache
+obj\Debug\BrowserCSharp.csproj.GenerateResource.Cache
+obj\Debug\Athelas.Properties.Resources.resources
+bin\Debug\Athelas.exe
+bin\Debug\Athelas.pdb
+obj\Debug\Athelas.exe
+obj\Debug\Athelas.pdb
+obj\Debug\Athelas.MainForm.resources
+obj\Debug\Athelas.OptionsForm.resources
